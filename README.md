@@ -740,3 +740,33 @@ O RADAR é uma plataforma que auxilia estudantes universitários a planejarem su
 ---
 
 **Desenvolvido com Next.js 16 + React 19 + Tailwind CSS v4**
+
+## Como rodar localmente
+
+Instruções rápidas para executar o frontend neste repositório (Windows - cmd.exe):
+
+1. Instale uma versão recente do Node.js (>=18) se ainda não tiver.
+2. No terminal, na pasta do projeto, instale dependências:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+> Observação: este projeto foi inicialmente criado usando pnpm. Se preferir, instale o pnpm globalmente e use `pnpm install`.
+
+3. Execute o servidor de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+4. Abra http://localhost:3000 no navegador.
+
+5. Para gerar o build de produção:
+
+```bash
+npm run build
+npm start
+```
+
+Se houver conflitos de peer relacionados a versões de React, o comando `npm install --legacy-peer-deps` deve resolver temporariamente. Para uma solução permanente, considere alinhar as versões das dependências (ex.: usar versões compatíveis com React 19 ou migrar pacotes que não suportam React 19).

@@ -471,7 +471,7 @@ export default function SchedulesResultPage() {
     } catch (error) {
       setIsDownloading(false)
       showToast("Erro ao gerar PDF. Tente novamente.", "error")
-      console.error("[v0] PDF generation error:", error)
+      console.error("PDF generation error:", error)
     }
   }
 

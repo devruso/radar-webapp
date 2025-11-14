@@ -56,7 +56,7 @@ export default function RegisterPage() {
     entryYear: "",
   })
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const [isLoading, setIsLoading] = useState(false)
 
   const [showCourseDropdown, setShowCourseDropdown] = useState(false)

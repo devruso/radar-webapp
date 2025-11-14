@@ -1,0 +1,276 @@
+openapi: 3.0.3
+info:
+  title: RADAR - API
+  version: 1.0.0
+  description: API para o backend do Recomendador de Disciplinas (RADAR)
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/auth/register:
+    post:
+      summary: Registrar novo usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+  /api/auth/login:
+    post:
+      summary: Autenticar usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login bem-sucedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Credenciais inválidas
+
+  /api/courses:
+    get:
+      summary: Listar cursos (autocomplete)
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: texto a buscar
+      responses:
+        '200':
+          description: Lista de cursos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseDto'
+
+  /api/schedules:
+    get:
+      summary: Obter turmas/horários para uma disciplina
+      parameters:
+        - in: query
+          name: disciplineCode
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Lista de turmas/horários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleDto'
+
+  /api/grades:
+    get:
+      summary: Listar grades (filtro opcional por usuário)
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de grades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GradeDto'
+    post:
+      summary: Salvar nova grade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGradeRequest'
+      responses:
+        '201':
+          description: Grade salva
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeDto'
+
+  /api/recommendations:
+    post:
+      summary: Gerar recomendação de grade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationRequest'
+      responses:
+        '200':
+          description: Recomendação gerada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResult'
+
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        matricula:
+          type: string
+        course:
+          type: string
+        entryMonth:
+          type: string
+        entryYear:
+          type: string
+        password:
+          type: string
+      required: [name, email, matricula, course, entryMonth, entryYear, password]
+
+    LoginRequest:
+      type: object
+      properties:
+        matricula:
+          type: string
+        password:
+          type: string
+      required: [matricula, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: '#/components/schemas/UserDto'
+
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        matricula:
+          type: string
+        course:
+          type: string
+
+    CourseDto:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+
+    ScheduleDto:
+      type: object
+      properties:
+        id:
+          type: integer
+        disciplineCode:
+          type: string
+        turma:
+          type: string
+        professor:
+          type: string
+        days:
+          type: string
+        time:
+          type: string
+
+    GradeItemDto:
+      type: object
+      properties:
+        disciplineCode:
+          type: string
+        name:
+          type: string
+        turma:
+          type: string
+        horario:
+          type: string
+
+    GradeDto:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        userId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradeItemDto'
+
+    CreateGradeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradeItemDto'
+      required: [name, items]
+
+    RecommendationRequest:
+      type: object
+      properties:
+        userId:
+          type: integer
+        preferences:
+          type: object
+          properties:
+            shifts:
+              type: array
+              items:
+                type: string
+            bannedProfessors:
+              type: array
+              items:
+                type: string
+
+    RecommendationResult:
+      type: object
+      properties:
+        grade:
+          $ref: '#/components/schemas/GradeDto'
+        reserves:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradeItemDto'
