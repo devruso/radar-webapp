@@ -1,2 +1,7 @@
 node_modules
 .next
+integration
+INTEGRACAO_COMPLETA.md
+backend/CRIAR_TABELAS_URGENTE.sql
+backend/CORRECAO_URGENTE.md
+.env.local
