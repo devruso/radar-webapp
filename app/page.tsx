@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,14 +9,18 @@ import Image from "next/image"
 import { useToast } from "@/components/toast-container"
 import { validateEmail, validateRequired } from "@/lib/validation"
 import { FormFieldError } from "@/components/form-field-error"
+import { useUser } from "@/lib/context/UserContext"
+import { useCursos } from "@/lib/hooks/api/useCursos"
 
 export default function LoginPage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const [testCourse, setTestCourse] = useState("")
+  const { login, criarTeste, loading: authLoading } = useUser()
+  const { data: cursos, loading: cursosLoading } = useCursos()
+  
+  const [testCourseId, setTestCourseId] = useState<number | null>(null)
   const [testMonth, setTestMonth] = useState("")
   const [testYear, setTestYear] = useState("")
-  const [showCourseDropdown, setShowCourseDropdown] = useState(false)
 
   const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
@@ -25,41 +29,14 @@ export default function LoginPage() {
 
   const [activeTab, setActiveTab] = useState<"test" | "login">("test")
 
-  const courses = [
-    "Ciência da Computação",
-    "Sistemas de Informação",
-    "Engenharia de Computação",
-    "Engenharia Elétrica",
-    "Engenharia Mecânica",
-    "Engenharia Civil",
-    "Medicina",
-    "Direito",
-    "Administração",
-    "Economia",
-    "Arquitetura",
-    "Psicologia",
-  ]
-
-  const filteredCourses = courses.filter((course) => course.toLowerCase().includes(testCourse.toLowerCase()))
-
   const months = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ]
 
   const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - i).toString())
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const errors: { email?: string; password?: string } = {}
@@ -76,22 +53,39 @@ export default function LoginPage() {
     }
 
     setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await login(loginEmail, loginPassword)
       showToast("Login realizado com sucesso!", "success")
       router.push("/dashboard")
-    }, 1000)
+    } catch (err: any) {
+      showToast(err.message || "Erro ao fazer login", "error")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleTestWithoutLogin = (e: React.FormEvent) => {
+  const handleTestWithoutLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (testCourse && testMonth && testYear) {
-      sessionStorage.setItem("testMode", "true")
-      sessionStorage.setItem("testCourse", testCourse)
-      sessionStorage.setItem("testEntry", `${testMonth}/${testYear}`)
-      showToast("Modo de teste iniciado", "info")
+    
+    if (!testCourseId) {
+      showToast("Por favor, selecione um curso", "warning")
+      return
+    }
+    
+    if (!testMonth || !testYear) {
+      showToast("Por favor, selecione mês e ano de ingresso", "warning")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const usuario = await criarTeste(testCourseId, Number.parseInt(testYear))
+      showToast("Modo de teste iniciado", "success")
       router.push("/grades")
+    } catch (err: any) {
+      showToast(err.message || "Erro ao criar usuário teste", "error")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -148,40 +142,36 @@ export default function LoginPage() {
             </div>
 
             <form className="space-y-4 md:space-y-6" onSubmit={handleTestWithoutLogin}>
-              {/* Course Field with Autocomplete */}
-              <div className="relative">
+              {/* Course Select */}
+              <div>
                 <label htmlFor="test-course" className="block text-sm font-medium text-white mb-2">
                   Seu curso
                 </label>
-                <input
-                  id="test-course"
-                  type="text"
-                  value={testCourse}
-                  onChange={(e) => {
-                    setTestCourse(e.target.value)
-                    setShowCourseDropdown(true)
-                  }}
-                  onFocus={() => setShowCourseDropdown(true)}
-                  placeholder="Digite seu curso"
-                  className="w-full px-4 py-3 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:ring-2 focus:ring-white focus:border-transparent outline-none transition"
-                  required
-                />
-                {showCourseDropdown && filteredCourses.length > 0 && testCourse && (
-                  <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {filteredCourses.map((course) => (
-                      <button
-                        key={course}
-                        type="button"
-                        onClick={() => {
-                          setTestCourse(course)
-                          setShowCourseDropdown(false)
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-100 transition text-gray-900 first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        {course}
-                      </button>
-                    ))}
+                {cursosLoading ? (
+                  <div className="w-full px-4 py-3 border border-white/20 rounded-lg bg-white/10 text-white/50">
+                    Carregando cursos...
                   </div>
+                  ) : cursos.length === 0 ? (
+                    <div className="w-full px-4 py-3 border border-red-500/20 rounded-lg bg-red-500/10 text-red-300">
+                      Nenhum curso encontrado. Verifique se o backend está rodando.
+                    </div>
+                ) : (
+                  <select
+                    id="test-course"
+                    value={testCourseId || ""}
+                    onChange={(e) => setTestCourseId(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full px-4 py-3 border border-white/20 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-white focus:border-transparent outline-none transition"
+                    required
+                  >
+                      <option value="" disabled>
+                      Selecione seu curso
+                    </option>
+                    {cursos.map((curso) => (
+                        <option key={curso.id} value={curso.id}>
+                        {curso.nome}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
 
