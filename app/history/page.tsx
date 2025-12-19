@@ -50,10 +50,15 @@ const mockGrades: SavedGrade[] = [
 export default function HistoryPage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const [grades, setGrades] = useState<SavedGrade[]>(mockGrades)
+    const [grades, setGrades] = useState<SavedGrade[]>([]) // VAZIO - Dados devem vir do backend
   const [selectedForComparison, setSelectedForComparison] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
+  
+    // TODO: Buscar grades salvas do backend quando endpoint existir
+    // useEffect(() => {
+    //   historico ou preferencias service
+    // }, [])
 
   const handleRename = (id: string, currentName: string) => {
     setEditingId(id)
