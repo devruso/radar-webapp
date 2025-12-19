@@ -2,116 +2,135 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import { useToast } from "@/components/toast-container"
+import { useUser } from "@/lib/context/UserContext"
+import { useRecomendacoes } from "@/lib/hooks/api/useRecomendacoes"
+import { RecommendationCard } from "@/components/RecommendationCard"
+import { usuariosService } from "@/lib/api/services/usuarios"
+import { turmasService } from "@/lib/api/services/turmas"
 
 export default function RecommendationsPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const fromDashboard = searchParams.get("from") === "dashboard"
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
+  const { usuarioId } = useUser()
 
-  const [shifts, setShifts] = useState<string[]>([])
-  const [bannedProfessors, setBannedProfessors] = useState("")
+  // Estados do formulário
+  const [shifts, setShifts] = useState<boolean[]>([false, false, false]) // [matutino, vespertino, noturno]
   const [professorSearch, setProfessorSearch] = useState("")
   const [showProfessorDropdown, setShowProfessorDropdown] = useState(false)
   const [bannedProfessorsList, setBannedProfessorsList] = useState<string[]>([])
+  const [availableProfessors, setAvailableProfessors] = useState<string[]>([])
 
-  const professors = [
-    "Prof. João Silva",
-    "Prof. Maria Santos",
-    "Prof. Carlos Oliveira",
-    "Prof. Ana Costa",
-    "Prof. Pedro Ferreira",
-    "Prof. Juliana Lima",
-    "Prof. Roberto Souza",
-    "Prof. Fernanda Alves",
-    "Prof. Lucas Martins",
-    "Prof. Beatriz Rocha",
-  ]
+  // Hook de recomendações
+  const { data: recomendacoes, loading: loadingRecomendacoes, error, refetch } = useRecomendacoes(usuarioId ?? undefined)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const filteredProfessors = professors.filter(
+  // Carregar lista de professores únicos do backend
+  useEffect(() => {
+    if (usuarioId) {
+      usuariosService.listarProfessoresBanidos(usuarioId).then(setBannedProfessorsList).catch(console.error)
+    }
+
+    // Buscar professores únicos das turmas
+    turmasService.listAll().then((turmas) => {
+      const uniqueProfs = Array.from(new Set(turmas.map(t => t.professor))).sort()
+      setAvailableProfessors(uniqueProfs)
+    }).catch(console.error)
+  }, [usuarioId])
+
+  const filteredProfessors = availableProfessors.filter(
     (prof) => prof.toLowerCase().includes(professorSearch.toLowerCase()) && !bannedProfessorsList.includes(prof),
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (shifts.length === 0) {
+    if (!shifts.some(s => s)) {
       showToast("Por favor, selecione pelo menos um turno disponível", "warning")
       return
     }
 
-    setIsLoading(true)
-    sessionStorage.setItem("schedules_from", "recommendations")
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    showToast("Gerando recomendação...", "info", 2000)
-    setIsLoading(false)
-    router.push("/recommendations/schedules")
-  }
-
-  const handleCompleteUpdate = async () => {
-    if (shifts.length === 0) {
-      showToast("Por favor, selecione pelo menos um turno disponível", "warning")
+    if (!usuarioId) {
+      showToast("Erro: usuário não identificado", "error")
       return
     }
 
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    showToast("Preferências atualizadas com sucesso!", "success")
-    setIsLoading(false)
-    setTimeout(() => router.push("/dashboard"), 500)
+    setIsSubmitting(true)
+    try {
+      // Salvar turnos no backend
+      await usuariosService.atualizarTurnos(usuarioId, { turnosLivres: shifts })
+      
+      // Gerar recomendações
+      await refetch()
+      showToast("Recomendações geradas com sucesso!", "success")
+    } catch (err) {
+      showToast("Erro ao gerar recomendações", "error")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const addProfessorToBanned = (professor: string) => {
-    setBannedProfessorsList([...bannedProfessorsList, professor])
-    setProfessorSearch("")
-    setShowProfessorDropdown(false)
+  const addProfessorToBanned = async (professor: string) => {
+    if (!usuarioId) return
+    
+    try {
+      await usuariosService.banirProfessor(usuarioId, { professorNome: professor })
+      setBannedProfessorsList([...bannedProfessorsList, professor])
+      setProfessorSearch("")
+      setShowProfessorDropdown(false)
+      showToast(`Professor ${professor} adicionado à lista de banidos`, "success")
+    } catch (err) {
+      showToast("Erro ao banir professor", "error")
+    }
   }
 
-  const removeProfessorFromBanned = (professor: string) => {
-    setBannedProfessorsList(bannedProfessorsList.filter((p) => p !== professor))
+  const removeProfessorFromBanned = async (professor: string) => {
+    if (!usuarioId) return
+
+    try {
+      await usuariosService.desbanirProfessor(usuarioId, { professorNome: professor })
+      setBannedProfessorsList(bannedProfessorsList.filter((p) => p !== professor))
+      showToast(`Professor ${professor} removido da lista de banidos`, "success")
+    } catch (err) {
+      showToast("Erro ao desbanir professor", "error")
+    }
   }
 
-  const toggleShift = (shift: string) => {
-    setShifts((prev) => (prev.includes(shift) ? prev.filter((s) => s !== shift) : [...prev, shift]))
+  const toggleShift = (index: number) => {
+    setShifts((prev) => {
+      const newShifts = [...prev]
+      newShifts[index] = !newShifts[index]
+      return newShifts
+    })
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <AppHeader
-        title="Preferências"
-        subtitle="Configure suas restrições para geração da grade"
-        showBack
-        backHref={fromDashboard ? "/dashboard" : "/grades"}
-        backLabel="Voltar"
-        showLogout={false}
-      />
-
+      <AppHeader />
       <main className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 mb-8">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Defina suas preferências</h2>
-            <p className="text-gray-600">Configure suas restrições e preferências para a geração da grade</p>
+            <p className="text-gray-600">Configure suas restrições para geração da recomendação</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">Turnos disponíveis:</label>
               <div className="flex flex-wrap gap-4">
-                {["Matutino", "Vespertino", "Noturno"].map((option) => (
-                  <label key={option} className="flex items-center gap-2 cursor-pointer">
+                {[{ name: "Matutino", index: 0 }, { name: "Vespertino", index: 1 }, { name: "Noturno", index: 2 }].map((option) => (
+                  <label key={option.name} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={shifts.includes(option)}
-                      onChange={() => toggleShift(option)}
+                      checked={shifts[option.index]}
+                      onChange={() => toggleShift(option.index)}
                       className="w-4 h-4 text-[#2B3E7E] border-gray-300 rounded focus:ring-[#2B3E7E]"
                     />
-                    <span className="text-sm text-gray-700">{option}</span>
+                    <span className="text-sm text-gray-700">{option.name}</span>
                   </label>
                 ))}
               </div>
@@ -119,7 +138,7 @@ export default function RecommendationsPage() {
 
             <div>
               <label htmlFor="professorSearch" className="block text-sm font-medium text-gray-700 mb-2">
-                Lista de professores a banir (pesquisável)
+                Professores a banir
               </label>
               <div className="relative">
                 <input
@@ -172,26 +191,50 @@ export default function RecommendationsPage() {
             </div>
 
             <div className="pt-4 border-t border-gray-200">
-              {fromDashboard ? (
-                <Button
-                  type="button"
-                  onClick={handleCompleteUpdate}
-                  disabled={isLoading}
-                  className="w-full md:w-auto bg-[#2B3E7E] hover:bg-[#1f2d5a] text-white px-8 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? "Salvando..." : "Concluir atualização"}
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full md:w-auto bg-[#2B3E7E] hover:bg-[#1f2d5a] text-white px-8 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? "Processando..." : "Gerar recomendação"}
-                </Button>
-              )}
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full md:w-auto bg-[#2B3E7E] hover:bg-[#1f2d5a] text-white px-8 py-6 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? "Gerando..." : "Gerar recomendação"}
+              </Button>
             </div>
           </form>
+        </div>
+
+        <div className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+              Erro: {error}
+            </div>
+          )}
+
+          {loadingRecomendacoes ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Carregando recomendações...</p>
+            </div>
+          ) : recomendacoes.length === 0 ? (
+            <div className="bg-white rounded-lg p-8 text-center">
+              <p className="text-gray-500 mb-4">Nenhuma recomendação disponível</p>
+              <Button onClick={handleSubmit} variant="outline" disabled={isSubmitting}>
+                {isSubmitting ? "Gerando..." : "Tentar novamente"}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {recomendacoes.map((rec) => (
+                  <RecommendationCard key={rec.turma.id} recomendacao={rec} />
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <Button onClick={() => router.push("/recommendations/result")}>
+                  Ver detalhes completos
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>
