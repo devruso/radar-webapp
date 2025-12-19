@@ -2,27 +2,43 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { AppHeader } from "@/components/app-header"
 import { useToast } from "@/components/toast-container"
 import { validateEmail, validatePassword, validatePasswordMatch, validateRequired } from "@/lib/validation"
 import { FormFieldError } from "@/components/form-field-error"
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator"
+import { useUser } from "@/lib/context/UserContext"
+import { useCursos } from "@/lib/hooks/api/useCursos"
 
 export default function ProfilePage() {
   const { showToast } = useToast()
+  const { usuario, loading: userLoading } = useUser()
+  const { data: cursos } = useCursos()
+  
   const [isLoading, setIsLoading] = useState(false)
-  const [name, setName] = useState("Nome Completo")
-  const [email, setEmail] = useState("usuario@email.com")
-  const [course, setCourse] = useState("Sistemas de Informação")
-  const [month, setMonth] = useState("Março")
-  const [year, setYear] = useState("2021")
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [course, setCourse] = useState("")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
+  
+  // Carregar dados do usuário
+  useEffect(() => {
+    if (usuario) {
+      setName(usuario.nome || "")
+      setEmail(usuario.email || "")
+      // Encontrar nome do curso pelo ID
+      const userCurso = cursos.find(c => c.id === usuario.cursoId)
+      if (userCurso) {
+        setCourse(userCurso.nome)
+      }
+    }
+  }, [usuario, cursos])
 
   const months = [
     "Janeiro",
@@ -37,23 +53,6 @@ export default function ProfilePage() {
     "Outubro",
     "Novembro",
     "Dezembro",
-  ]
-
-  const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - i).toString())
-
-  const courses = [
-    "Ciência da Computação",
-    "Sistemas de Informação",
-    "Engenharia de Computação",
-    "Engenharia Elétrica",
-    "Engenharia Mecânica",
-    "Engenharia Civil",
-    "Medicina",
-    "Direito",
-    "Administração",
-    "Economia",
-    "Arquitetura",
-    "Psicologia",
   ]
 
   const clearError = (field: string) => {
@@ -115,6 +114,14 @@ export default function ProfilePage() {
     setErrors({})
   }
 
+  if (userLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Carregando perfil...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       <AppHeader
@@ -127,6 +134,13 @@ export default function ProfilePage() {
 
       <main className="max-w-2xl mx-auto px-8 py-12">
         <div className="bg-white rounded-xl shadow-lg p-8">
+          {usuario?.isTeste && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                <strong>Modo Teste:</strong> Você está usando uma conta de teste. Para salvar alterações permanentes, crie uma conta completa.
+              </p>
+            </div>
+          )}
           <form className="space-y-6" onSubmit={handleSave}>
             <fieldset className="space-y-6 pb-6 border-b border-gray-200">
               <legend className="text-base font-semibold text-[#2B3E7E] mb-4">Dados Pessoais</legend>
@@ -181,46 +195,16 @@ export default function ProfilePage() {
                 <label htmlFor="course" className="block text-sm font-medium text-gray-700 mb-2">
                   Curso
                 </label>
-                <select
+                <input
                   id="course"
+                  type="text"
                   value={course}
-                  onChange={(e) => setCourse(e.target.value)}
-                  className="w-full px-4 py-3.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E7E] focus:border-transparent outline-none transition text-base"
-                >
-                  {courses.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mês e ano de ingresso</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <select
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                    className="px-4 py-3.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E7E] focus:border-transparent outline-none transition text-base"
-                  >
-                    {months.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    className="px-4 py-3.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B3E7E] focus:border-transparent outline-none transition text-base"
-                  >
-                    {years.map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  disabled
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 outline-none transition text-base cursor-not-allowed"
+                />
+                <p className="mt-2 text-sm text-gray-500">
+                  O curso não pode ser alterado após o cadastro
+                </p>
               </div>
             </fieldset>
 

@@ -3,11 +3,29 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useEffect } from "react"
+import { useUser } from "@/lib/context/UserContext"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
+  const { usuario, logout, loading } = useUser()
+  const router = useRouter()
+
   useEffect(() => {
     sessionStorage.setItem("schedules_from", "dashboard")
   }, [])
+
+  const handleLogout = () => {
+    logout()
+    router.push("/")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Carregando...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -25,19 +43,23 @@ export default function DashboardPage() {
               <p className="text-sm text-white/80">Recomendador de Disciplinas da UFBA</p>
             </div>
           </div>
-          <Link href="/">
-            <Button variant="ghost" className="text-white hover:bg-white/10">
-              Logout
-            </Button>
-          </Link>
+          <Button onClick={handleLogout} variant="ghost" className="text-white hover:bg-white/10">
+            Logout
+          </Button>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-8 py-12">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Espaço de Usuário</h2>
-          <p className="text-gray-600">Gerencie suas informações e recomendações</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Olá, {usuario?.nome || "Usuário"}! 👋
+          </h2>
+          <p className="text-gray-600">
+            {usuario?.isTeste 
+              ? "Modo teste ativo - Gerencie suas informações e recomendações" 
+              : "Gerencie suas informações e recomendações"}
+          </p>
         </div>
 
         {/* Action Cards */}

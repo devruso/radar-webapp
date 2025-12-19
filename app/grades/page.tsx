@@ -5,8 +5,18 @@ import { useState, useEffect } from "react"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { AppHeader } from "@/components/app-header"
 import { useToast } from "@/components/toast-container"
+import { useUser } from "@/lib/context/UserContext"
+import { useHistorico } from "@/lib/hooks/api/useHistorico"
+import { useComponentes } from "@/lib/hooks/api/useComponentes"
+import { usuariosService } from "@/lib/api/services/usuarios"
+import type { ComponenteCurricularDTO } from "@/lib/api/types"
 
-const semesters = [
+interface SemesterData {
+  number: number
+  courses: ComponenteCurricularDTO[]
+}
+
+const OLD_semesters = [
   {
     number: 1,
     courses: [
@@ -110,23 +120,62 @@ const semesters = [
 ]
 
 export default function GradesPage() {
-  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set())
-  const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set(semesters.map((s) => s.number)))
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromDashboard = searchParams.get("from") === "dashboard"
-  const [isTestMode, setIsTestMode] = useState(false)
   const { showToast } = useToast()
+  const { usuarioId, usuario } = useUser()
+  
+  // Buscar componentes e histórico do backend
+  const { data: componentes, loading: loadingComponentes } = useComponentes()
+  const { data: historico, loading: loadingHistorico } = useHistorico(usuarioId)
+  
+  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set())
+  const [semesters, setSemesters] = useState<SemesterData[]>([])
+  const [expandedSemesters, setExpandedSemesters] = useState<Set<number>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Organizar componentes por semestre
+  useEffect(() => {
+    if (componentes.length > 0) {
+      const semesterMap: Record<number, ComponenteCurricularDTO[]> = {}
+      
+      componentes.forEach(comp => {
+        const nivel = comp.nivel || 1
+        if (!semesterMap[nivel]) {
+          semesterMap[nivel] = []
+        }
+        semesterMap[nivel].push(comp)
+      })
+      
+      const semesterData: SemesterData[] = Object.keys(semesterMap)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(num => ({
+          number: num,
+          courses: semesterMap[num]
+        }))
+      
+      setSemesters(semesterData)
+      setExpandedSemesters(new Set(semesterData.map(s => s.number)))
+    }
+  }, [componentes])
+  
+  // Pré-selecionar disciplinas já cursadas
+  useEffect(() => {
+    if (usuario?.disciplinasFeitas && usuario.disciplinasFeitas.length > 0) {
+      setSelectedCourses(new Set(usuario.disciplinasFeitas))
+    }
+  }, [usuario])
 
-  const toggleCourse = (semesterNumber: number, courseIndex: number) => {
-    const courseId = `${semesterNumber}-${courseIndex}`
+  const toggleCourse = (componenteId: number) => {
+    const courseIdStr = componenteId.toString()
     const newSelected = new Set(selectedCourses)
 
-    if (newSelected.has(courseId)) {
-      newSelected.delete(courseId)
+    if (newSelected.has(courseIdStr)) {
+      newSelected.delete(courseIdStr)
     } else {
-      newSelected.add(courseId)
+      newSelected.add(courseIdStr)
     }
 
     setSelectedCourses(newSelected)
@@ -136,16 +185,16 @@ export default function GradesPage() {
     const semester = semesters.find((s) => s.number === semesterNumber)
     if (!semester || semester.courses.length === 0) return
 
-    const allSelected = semester.courses.every((_, idx) => selectedCourses.has(`${semesterNumber}-${idx}`))
+    const allSelected = semester.courses.every((c) => selectedCourses.has(c.id.toString()))
 
     const newSelected = new Set(selectedCourses)
 
-    semester.courses.forEach((_, idx) => {
-      const courseId = `${semesterNumber}-${idx}`
+    semester.courses.forEach((course) => {
+      const courseIdStr = course.id.toString()
       if (allSelected) {
-        newSelected.delete(courseId)
+        newSelected.delete(courseIdStr)
       } else {
-        newSelected.add(courseId)
+        newSelected.add(courseIdStr)
       }
     })
 
@@ -156,7 +205,7 @@ export default function GradesPage() {
     const semester = semesters.find((s) => s.number === semesterNumber)
     if (!semester || semester.courses.length === 0) return false
 
-    return semester.courses.every((_, idx) => selectedCourses.has(`${semesterNumber}-${idx}`))
+    return semester.courses.every((c) => selectedCourses.has(c.id.toString()))
   }
 
   const toggleSemesterExpansion = (semesterNumber: number) => {
@@ -171,22 +220,44 @@ export default function GradesPage() {
 
   const collapsedCount = semesters.length - expandedSemesters.size
 
-  useEffect(() => {
-    const testMode = sessionStorage.getItem("testMode")
-    setIsTestMode(testMode === "true")
-  }, [])
-
   const handleCompleteUpdate = async () => {
+    if (!usuarioId) {
+      showToast("Erro: usuário não identificado", "error")
+      return
+    }
+
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    showToast("Disciplinas atualizadas com sucesso!", "success")
-    setIsLoading(false)
-    setTimeout(() => router.push("/dashboard"), 500)
+    try {
+      await usuariosService.atualizarDisciplinas(usuarioId, {
+        disciplinasFeitas: Array.from(selectedCourses)
+      })
+      showToast("Disciplinas atualizadas com sucesso!", "success")
+      setTimeout(() => router.push("/dashboard"), 500)
+    } catch (err: any) {
+      showToast(err.message || "Erro ao atualizar disciplinas", "error")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleProceedToPreferences = () => {
-    showToast("Navegando para preferências...", "info", 2000)
-    router.push("/recommendations")
+  const handleProceedToPreferences = async () => {
+    if (!usuarioId) {
+      showToast("Erro: usuário não identificado", "error")
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      await usuariosService.atualizarDisciplinas(usuarioId, {
+        disciplinasFeitas: Array.from(selectedCourses)
+      })
+      showToast("Navegando para preferências...", "info", 2000)
+      router.push("/recommendations")
+    } catch (err: any) {
+      showToast(err.message || "Erro ao salvar disciplinas", "error")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -207,7 +278,16 @@ export default function GradesPage() {
             <p className="text-gray-600">Selecione todas as disciplinas que você já fez</p>
           </div>
 
-          <div className={collapsedCount >= 2 ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-8"}>
+          {loadingComponentes ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Carregando disciplinas...</p>
+            </div>
+          ) : semesters.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Nenhuma disciplina encontrada</p>
+            </div>
+          ) : (
+            <div className={collapsedCount >= 2 ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-8"}>
             {semesters.map((semester) => {
               const isExpanded = expandedSemesters.has(semester.number)
 
@@ -248,24 +328,25 @@ export default function GradesPage() {
                     <>
                       {semester.courses.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {semester.courses.map((course, idx) => {
-                            const courseId = `${semester.number}-${idx}`
-                            const isSelected = selectedCourses.has(courseId)
+                          {semester.courses.map((course) => {
+                            const courseIdStr = course.id.toString()
+                            const isSelected = selectedCourses.has(courseIdStr)
+                            const colorClass = `bg-blue-100 text-blue-700 border-blue-200`
 
                             return (
                               <label
-                                key={idx}
-                                className={`px-3 py-2 rounded-lg text-sm font-medium border ${course.color} transition-all hover:scale-105 cursor-pointer flex items-center gap-2 ${
+                                key={course.id}
+                                className={`px-3 py-2 rounded-lg text-sm font-medium border ${colorClass} transition-all hover:scale-105 cursor-pointer flex items-center gap-2 ${
                                   isSelected ? "ring-2 ring-[#2B3E7E] ring-offset-2" : ""
                                 }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  onChange={() => toggleCourse(semester.number, idx)}
+                                  onChange={() => toggleCourse(course.id)}
                                   className="w-4 h-4 rounded border-gray-300 text-[#2B3E7E] focus:ring-[#2B3E7E] cursor-pointer"
                                 />
-                                {course.name}
+                                {course.nome}
                               </label>
                             )
                           })}
@@ -278,7 +359,8 @@ export default function GradesPage() {
                 </div>
               )
             })}
-          </div>
+            </div>
+          )}
 
           <div className="mt-10 pt-8 border-t border-gray-200">
             {fromDashboard ? (
