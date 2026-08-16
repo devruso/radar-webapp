@@ -4,11 +4,10 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 export default function ResetPasswordPage() {
-  const router = useRouter()
+  const [unavailable, setUnavailable] = useState(false)
   const [formData, setFormData] = useState({
     password: "",
     confirmPassword: "",
@@ -16,8 +15,7 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate password reset success
-    router.push("/reset-password/success")
+    setUnavailable(true)
   }
 
   return (
@@ -68,8 +66,13 @@ export default function ResetPasswordPage() {
             </div>
 
             <Button type="submit" className="w-full bg-[#2B3E7E] hover:bg-[#1f2d5a] text-white py-6 text-base">
-              Confirmar
+              Redefinir senha
             </Button>
+            {unavailable && (
+              <p role="status" className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                Link de recuperação inválido ou indisponível. Nenhuma senha foi alterada.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 text-center">

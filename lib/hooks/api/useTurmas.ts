@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { turmasService } from '@/lib/api/services/turmas';
 import { TurmaDTO } from '@/lib/api/types';
 
@@ -14,7 +14,7 @@ export function useTurmas(): UseTurmasReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -27,11 +27,11 @@ export function useTurmas(): UseTurmasReturn {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refetch();
-  }, []);
+  }, [refetch]);
 
   return { data, loading, error, refetch };
 }
@@ -41,7 +41,7 @@ export function useTurmasByCurso(cursoId: number | null): UseTurmasReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     if (!cursoId) return;
 
     setLoading(true);
@@ -56,13 +56,13 @@ export function useTurmasByCurso(cursoId: number | null): UseTurmasReturn {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cursoId]);
 
   useEffect(() => {
     if (cursoId) {
       refetch();
     }
-  }, [cursoId]);
+  }, [cursoId, refetch]);
 
   return { data, loading, error, refetch };
 }

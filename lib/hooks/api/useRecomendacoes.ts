@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { recomendacoesService } from '@/lib/api/services/recomendacoes';
 import { RecomendacaoTurmaDTO } from '@/lib/api/types';
 
@@ -15,12 +15,16 @@ export function useRecomendacoes(usuarioId?: number | null): UseRecomendacoesRet
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const result = await recomendacoesService.gerar(usuarioId ?? undefined, 'burrinho');
+      if (!usuarioId) {
+        setData([]);
+        return;
+      }
+      const result = await recomendacoesService.gerar(usuarioId, 'busca');
       setData(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao gerar recomendações';
@@ -28,14 +32,14 @@ export function useRecomendacoes(usuarioId?: number | null): UseRecomendacoesRet
     } finally {
       setLoading(false);
     }
-  };
+  }, [usuarioId]);
 
   useEffect(() => {
     // Auto-load apenas se houver usuário; convidado dispara manualmente
     if (usuarioId) {
       refetch();
     }
-  }, [usuarioId]);
+  }, [usuarioId, refetch]);
 
   return { data, loading, error, refetch };
 }

@@ -11,16 +11,21 @@ import { FormFieldError } from "@/components/form-field-error"
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator"
 import { useUser } from "@/lib/context/UserContext"
 import { useCursos } from "@/lib/hooks/api/useCursos"
+import { usuariosService } from "@/lib/api/services/usuarios"
 
 export default function ProfilePage() {
   const { showToast } = useToast()
-  const { usuario, loading: userLoading } = useUser()
+  const { usuario, usuarioId, loading: userLoading, reloadUser } = useUser()
   const { data: cursos } = useCursos()
   
   const [isLoading, setIsLoading] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [course, setCourse] = useState("")
+  const [initialProfile, setInitialProfile] = useState("1")
+  const [regularPeriods, setRegularPeriods] = useState("0")
+  const [cr, setCr] = useState("")
+  const [graduating, setGraduating] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -32,6 +37,10 @@ export default function ProfilePage() {
     if (usuario) {
       setName(usuario.nome || "")
       setEmail(usuario.email || "")
+      setInitialProfile(String(usuario.perfilInicial ?? 1))
+      setRegularPeriods(String(usuario.periodosRegularesCursados ?? 0))
+      setCr(usuario.coeficienteRendimento == null ? "" : String(usuario.coeficienteRendimento))
+      setGraduating(Boolean(usuario.statusFormando))
       // Encontrar nome do curso pelo ID
       const userCurso = cursos.find(c => c.id === usuario.cursoId)
       if (userCurso) {
@@ -39,21 +48,6 @@ export default function ProfilePage() {
       }
     }
   }, [usuario, cursos])
-
-  const months = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ]
 
   const clearError = (field: string) => {
     if (errors[field]) {
@@ -71,6 +65,18 @@ export default function ProfilePage() {
 
     if (nameError) newErrors.name = nameError
     if (emailError) newErrors.email = emailError
+    const parsedInitialProfile = Number(initialProfile)
+    const parsedRegularPeriods = Number(regularPeriods)
+    const parsedCr = Number(cr)
+    if (!Number.isInteger(parsedInitialProfile) || parsedInitialProfile < 1) {
+      newErrors.initialProfile = "Informe um perfil inicial válido"
+    }
+    if (!Number.isInteger(parsedRegularPeriods) || parsedRegularPeriods < 0) {
+      newErrors.regularPeriods = "Informe os períodos regulares cursados"
+    }
+    if (cr.trim() === "" || !Number.isFinite(parsedCr) || parsedCr < 0 || parsedCr > 10) {
+      newErrors.cr = "Informe um CR entre 0 e 10"
+    }
 
     // Validate password fields if user is trying to change password
     if (currentPassword || newPassword || confirmPassword) {
@@ -97,21 +103,34 @@ export default function ProfilePage() {
       return
     }
 
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    if (newPassword) {
-      showToast("Dados e senha atualizados com sucesso!", "success")
-    } else {
-      showToast("Dados cadastrais atualizados com sucesso!", "success")
+    if (!usuarioId || usuario?.isTeste) {
+      showToast("Contas de teste não possuem perfil persistente", "warning")
+      return
     }
 
-    setIsLoading(false)
-
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
-    setErrors({})
+    setIsLoading(true)
+    try {
+      await usuariosService.atualizarPerfil(usuarioId, {
+        nome: name,
+        email,
+        senhaAtual: currentPassword || undefined,
+        novaSenha: newPassword || undefined,
+        perfilInicial: parsedInitialProfile,
+        periodosRegularesCursados: parsedRegularPeriods,
+        coeficienteRendimento: parsedCr,
+        statusFormando: graduating,
+      })
+      await reloadUser()
+      showToast(newPassword ? "Dados e senha atualizados!" : "Dados cadastrais atualizados!", "success")
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setErrors({})
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Erro ao atualizar perfil", "error")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (userLoading) {
@@ -206,6 +225,72 @@ export default function ProfilePage() {
                   O curso não pode ser alterado após o cadastro
                 </p>
               </div>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+                Semestre acadêmico calculado: <strong>{Number(initialProfile || 0) + Number(regularPeriods || 0)}</strong>.
+                Os períodos regulares não devem incluir trancamento, suspensão ou mobilidade.
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="initialProfile" className="block text-sm font-medium text-gray-700 mb-2">
+                    Perfil inicial
+                  </label>
+                  <input
+                    id="initialProfile"
+                    type="number"
+                    min="1"
+                    value={initialProfile}
+                    onChange={(e) => setInitialProfile(e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                    required
+                  />
+                  <FormFieldError error={errors.initialProfile} id="profile-initial-error" />
+                </div>
+                <div>
+                  <label htmlFor="regularPeriods" className="block text-sm font-medium text-gray-700 mb-2">
+                    Períodos regulares cursados
+                  </label>
+                  <input
+                    id="regularPeriods"
+                    type="number"
+                    min="0"
+                    value={regularPeriods}
+                    onChange={(e) => setRegularPeriods(e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                    required
+                  />
+                  <FormFieldError error={errors.regularPeriods} id="regular-periods-error" />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="coefficient" className="block text-sm font-medium text-gray-700 mb-2">
+                  Coeficiente de Rendimento (CR)
+                </label>
+                <input
+                  id="coefficient"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.01"
+                  value={cr}
+                  onChange={(e) => setCr(e.target.value)}
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                  required
+                />
+                <FormFieldError error={errors.cr} id="coefficient-error" />
+              </div>
+
+              <label className="flex items-center gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={graduating}
+                  onChange={(e) => setGraduating(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Tenho status <strong>FORMANDO</strong> no SIGAA
+              </label>
             </fieldset>
 
             <fieldset className="space-y-6 pt-2">

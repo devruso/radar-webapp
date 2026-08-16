@@ -21,6 +21,10 @@ export default function LoginPage() {
   const [testCourseId, setTestCourseId] = useState<number | null>(null)
   const [testMonth, setTestMonth] = useState("")
   const [testYear, setTestYear] = useState("")
+  const [testInitialProfile, setTestInitialProfile] = useState("1")
+  const [testRegularPeriods, setTestRegularPeriods] = useState("0")
+  const [testCr, setTestCr] = useState("")
+  const [testGraduating, setTestGraduating] = useState(false)
 
   const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
@@ -54,7 +58,7 @@ export default function LoginPage() {
 
     setIsLoading(true)
     try {
-      await login(loginEmail, loginPassword)
+      await login({ email: loginEmail, senha: loginPassword })
       showToast("Login realizado com sucesso!", "success")
       router.push("/dashboard")
     } catch (err: any) {
@@ -76,10 +80,27 @@ export default function LoginPage() {
       showToast("Por favor, selecione mês e ano de ingresso", "warning")
       return
     }
+    const initialProfile = Number(testInitialProfile)
+    const regularPeriods = Number(testRegularPeriods)
+    const cr = testCr.trim() === "" ? undefined : Number(testCr)
+    if (!Number.isInteger(initialProfile) || initialProfile < 1
+      || !Number.isInteger(regularPeriods) || regularPeriods < 0
+      || cr !== undefined && (!Number.isFinite(cr) || cr < 0 || cr > 10)) {
+      showToast("Revise perfil inicial, períodos regulares e CR", "warning")
+      return
+    }
 
     setIsLoading(true)
     try {
-      const usuario = await criarTeste(testCourseId, Number.parseInt(testYear))
+      await criarTeste({
+        cursoId: testCourseId,
+        anoIngresso: Number.parseInt(testYear),
+        mesIngresso: months.indexOf(testMonth) + 1,
+        perfilInicial: initialProfile,
+        periodosRegularesCursados: regularPeriods,
+        coeficienteRendimento: cr,
+        statusFormando: testGraduating,
+      })
       showToast("Modo de teste iniciado", "success")
       router.push("/grades")
     } catch (err: any) {
@@ -211,6 +232,63 @@ export default function LoginPage() {
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="test-initial-profile" className="block text-sm font-medium text-white mb-2">
+                    Perfil inicial
+                  </label>
+                  <input
+                    id="test-initial-profile"
+                    type="number"
+                    min="1"
+                    value={testInitialProfile}
+                    onChange={(e) => setTestInitialProfile(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg bg-white text-gray-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="test-regular-periods" className="block text-sm font-medium text-white mb-2">
+                    Períodos regulares
+                  </label>
+                  <input
+                    id="test-regular-periods"
+                    type="number"
+                    min="0"
+                    value={testRegularPeriods}
+                    onChange={(e) => setTestRegularPeriods(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg bg-white text-gray-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="test-cr" className="block text-sm font-medium text-white mb-2">
+                  CR (opcional no modo teste)
+                </label>
+                <input
+                  id="test-cr"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.01"
+                  value={testCr}
+                  onChange={(e) => setTestCr(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-white text-gray-900"
+                />
+              </div>
+
+              <label className="flex items-center gap-3 text-sm text-white">
+                <input
+                  type="checkbox"
+                  checked={testGraduating}
+                  onChange={(e) => setTestGraduating(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Tenho status FORMANDO no SIGAA
+              </label>
 
               <Button
                 type="submit"

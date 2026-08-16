@@ -229,8 +229,8 @@ export default function RecommendationsPage() {
               </div>
 
               <div className="flex gap-4">
-                <Button onClick={() => router.push("/recommendations/result")}>
-                  Ver detalhes completos
+                <Button onClick={() => router.push("/recommendations/schedules")}>
+                  Ver grade sem conflitos
                 </Button>
               </div>
             </>

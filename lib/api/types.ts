@@ -1,7 +1,6 @@
 /**
  * DTOs do Backend RADAR
- * Sincronizado com: http://localhost:9090/v3/api-docs
- * Última atualização: 18/12/2025
+ * Sincronizado com o contrato OpenAPI local do RADAR.
  */
 
 // ==================== CORE ENTITIES ====================
@@ -13,6 +12,11 @@ export interface UsuarioDTO {
   matricula?: string;
   anoIngresso?: number;
   mesIngresso?: number;
+  periodoAtual?: number;
+  perfilInicial?: number;
+  periodosRegularesCursados?: number;
+  coeficienteRendimento?: number;
+  statusFormando?: boolean;
   isTeste?: boolean;
   cursoId?: number;
   cursoNome?: string;
@@ -25,8 +29,9 @@ export interface UsuarioDTO {
 export interface CursoDTO {
   id: number;
   nome: string;
-  codigo: string;
-  descricao?: string;
+  coordenador?: string | null;
+  nivel?: string | null;
+  turno?: string | null;
   estruturaId?: number;
   guiaId?: number;
 }
@@ -35,28 +40,61 @@ export interface ComponenteCurricularDTO {
   id: number;
   codigo: string;
   nome: string;
-  cargaHoraria: number;
-  nivel: number;
-  descricao?: string;
-  estruturaId?: number;
+  nivel?: number | null;
+  ementa?: string | null;
+  tipo?: string | null;
+  prerequisito?: string | null;
+  corequisito?: string | null;
+  posrequisito?: string | null;
+  departamento?: string | null;
+  nivelAcademico?: string | null;
+  semestre?: string | null;
+  programa?: string | null;
+  objetivo?: string | null;
+  metodologia?: string | null;
+  avaliacaoAprendizagem?: string | null;
+  bibliografia?: string | null;
+  cargaHoraria?: number | null;
+  ementasSources?: string | null;
+  ementasUpdatedAt?: string | null;
+  ementasSyncedAt?: string | null;
+  turmasIds?: number[];
+}
+
+export interface AuthResponseDTO {
+  accessToken: string;
+  tokenType: 'Bearer';
+  expiresIn: number;
+  usuario: UsuarioDTO;
 }
 
 export interface TurmaDTO {
   id: number;
-  codigoTurma: string;
+  local: string;
   professor: string;
-  vagas: number;
+  numero: string;
+  tipo: number;
   componenteId: number;
+  componenteCodigo?: string;
   componenteNome?: string;
-  horarioId: number;
+  horarioId?: number;
+  vagasId?: number;
+  guiaId?: number;
+  turno?: string;
+  horarios?: Record<string, string>;
+  totalVagas?: number | null;
+  vagasDisponiveis?: number | null;
+  periodoLetivo?: string | null;
+  source?: string | null;
+  externalKey?: string | null;
+  ativa?: boolean;
 }
 
 export interface HorarioDTO {
   id: number;
-  diaSemana: string;
-  horaInicio: string;
-  horaFim: string;
-  turno: string; // MATUTINO, VESPERTINO, NOTURNO
+  codigo: string;
+  turno: string;
+  horarios: Record<string, string>;
 }
 
 export interface VagasDTO {
@@ -80,28 +118,6 @@ export interface GuiaMatriculaDTO {
   periodo: number;
 }
 
-// ==================== HISTORICO & PREFERENCIAS ====================
-
-export interface HistoricoEstudanteDTO {
-  id: number;
-  usuarioId: number;
-  componenteId: number;
-  componenteNome?: string;
-  componenteCodigo?: string;
-  semestre: string; // "2024.1"
-  nota?: number;
-  status: 'APROVADO' | 'REPROVADO' | 'TRANCADO';
-  dataConclusao?: string;
-}
-
-export interface PreferenciasUsuarioDTO {
-  id: number;
-  usuarioId: number;
-  turnosDisponiveis: string[]; // ["MATUTINO", "VESPERTINO", "NOTURNO"]
-  professoresBanidos: string[];
-  dataAtualizacao: string;
-}
-
 // ==================== RATING & PREREQUISITOS ====================
 
 export interface AvaliacaoProfessorDTO {
@@ -119,9 +135,8 @@ export interface PreRequisitoDTO {
   id: number;
   componenteId: number;
   componenteNome?: string;
-  preRequisitoId: number;
-  preRequisitoNome?: string;
-  tipo: 'PREREQUISITO' | 'COREQUISITO' | 'POSREQUISITO';
+  componentePreRequisitoId: number;
+  tipo: string;
 }
 
 // ==================== RECOMENDAÇÕES ====================
@@ -130,7 +145,29 @@ export interface RecomendacaoTurmaDTO {
   turma: TurmaDTO;
   dificuldade: 'FACIL' | 'INTERMEDIO' | 'DIFICIL';
   scoreProfessor: number;
-  motivoRecomendacao: string;
+  motivo: string;
+  posicao: number;
+  prioridadeMatricula: 1 | 2 | 3 | 4 | 5;
+  categoriaPrioridade: string;
+  semestreCurricular?: number | null;
+  semestreAcademico: number;
+  criterioDesempate: string;
+}
+
+export interface SimulacaoGradeDTO {
+  id: number;
+  usuarioId: number;
+  nome: string;
+  metodo: 'guloso' | 'busca';
+  criadaEm: string;
+  turmas: TurmaDTO[];
+}
+
+export interface SalvarSimulacaoGradePayload {
+  usuarioId: number;
+  nome: string;
+  metodo: 'guloso' | 'busca';
+  turmaIds: number[];
 }
 
 // ==================== PAYLOADS ====================
@@ -138,13 +175,6 @@ export interface RecomendacaoTurmaDTO {
 export interface LoginPayload {
   email: string;
   senha: string;
-}
-
-export interface RegisterPayload {
-  nome: string;
-  email: string;
-  senha: string;
-  matricula?: string;
 }
 
 export interface CadastroPayload {
@@ -155,11 +185,20 @@ export interface CadastroPayload {
   cursoId: number;
   mesIngresso: number;
   anoIngresso: number;
+  perfilInicial: number;
+  periodosRegularesCursados: number;
+  coeficienteRendimento: number;
+  statusFormando: boolean;
 }
 
 export interface UsuarioTestePayload {
   cursoId: number;
   anoIngresso: number;
+  mesIngresso: number;
+  perfilInicial: number;
+  periodosRegularesCursados: number;
+  coeficienteRendimento?: number;
+  statusFormando: boolean;
 }
 
 export interface AtualizarDisciplinasPayload {
@@ -168,6 +207,17 @@ export interface AtualizarDisciplinasPayload {
 
 export interface AtualizarTurnosPayload {
   turnosLivres: boolean[]; // [matutino, vespertino, noturno]
+}
+
+export interface AtualizarPerfilPayload {
+  nome: string;
+  email: string;
+  senhaAtual?: string;
+  novaSenha?: string;
+  perfilInicial: number;
+  periodosRegularesCursados: number;
+  coeficienteRendimento: number;
+  statusFormando: boolean;
 }
 
 export interface BanirProfessorPayload {

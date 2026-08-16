@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { prerequisitosService } from '@/lib/api/services/prerequisitos';
 import { PreRequisitoDTO } from '@/lib/api/types';
 
@@ -14,7 +14,7 @@ export function usePrerequisitos(componenteId: number | null): UsePrerequisitosR
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     if (!componenteId) return;
 
     setLoading(true);
@@ -29,13 +29,13 @@ export function usePrerequisitos(componenteId: number | null): UsePrerequisitosR
     } finally {
       setLoading(false);
     }
-  };
+  }, [componenteId]);
 
   useEffect(() => {
     if (componenteId) {
       refetch();
     }
-  }, [componenteId]);
+  }, [componenteId, refetch]);
 
   return { data, loading, error, refetch };
 }

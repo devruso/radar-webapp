@@ -2,36 +2,29 @@ import { api } from '../client';
 import { 
   UsuarioDTO, 
   LoginPayload, 
-  RegisterPayload,
   CadastroPayload,
   UsuarioTestePayload,
   AtualizarDisciplinasPayload,
   AtualizarTurnosPayload,
-  BanirProfessorPayload
+  BanirProfessorPayload,
+  AtualizarPerfilPayload,
+  AuthResponseDTO
 } from '../types';
 
 export const usuariosService = {
-  async listAll(): Promise<UsuarioDTO[]> {
-    return api.get('/usuarios');
-  },
-
   async getById(id: number): Promise<UsuarioDTO> {
     return api.get(`/usuarios/${id}`);
   },
 
-  async login(payload: LoginPayload): Promise<UsuarioDTO> {
+  async login(payload: LoginPayload): Promise<AuthResponseDTO> {
     return api.post('/usuarios/login', payload);
   },
 
-  async register(payload: RegisterPayload): Promise<UsuarioDTO> {
-    return api.post('/usuarios/register', payload);
-  },
-
-  async cadastro(payload: CadastroPayload): Promise<UsuarioDTO> {
+  async cadastro(payload: CadastroPayload): Promise<AuthResponseDTO> {
     return api.post('/usuarios/cadastro', payload);
   },
 
-  async criarTeste(payload: UsuarioTestePayload): Promise<UsuarioDTO> {
+  async criarTeste(payload: UsuarioTestePayload): Promise<AuthResponseDTO> {
     return api.post('/usuarios/teste', payload);
   },
 
@@ -41,6 +34,10 @@ export const usuariosService = {
 
   async atualizarTurnos(id: number, payload: AtualizarTurnosPayload): Promise<UsuarioDTO> {
     return api.post(`/usuarios/${id}/turnos`, payload);
+  },
+
+  async atualizarPerfil(id: number, payload: AtualizarPerfilPayload): Promise<UsuarioDTO> {
+    return api.post(`/usuarios/${id}/perfil`, payload);
   },
 
   async banirProfessor(id: number, payload: BanirProfessorPayload): Promise<UsuarioDTO> {

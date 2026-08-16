@@ -14,11 +14,4 @@ export const prerequisitosService = {
     return api.get(`/prerequisitos/componente/${componenteId}/tipo/${tipo}`);
   },
 
-  async create(data: PreRequisitoDTO): Promise<PreRequisitoDTO> {
-    return api.post('/prerequisitos', data);
-  },
-
-  async delete(id: number): Promise<void> {
-    return api.delete(`/prerequisitos/${id}`);
-  },
 };

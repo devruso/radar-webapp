@@ -10,6 +10,14 @@ export const api = axios.create({
   },
 });
 
+export function setAccessToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common.Authorization;
+  }
+}
+
 /**
  * Response interceptor: extrai dados do envelope ApiResponseDTO
  * Se falhar, rejeita com mensagem de erro padronizada
@@ -17,6 +25,11 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response.data.data ?? response.data,
   (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('usuarioId');
+      window.dispatchEvent(new Event('radar:unauthorized'));
+    }
     const message = error.response?.data?.message ?? error.message ?? 'Erro na requisição';
     return Promise.reject(new Error(message));
   }

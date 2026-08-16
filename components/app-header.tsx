@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, LogOut } from "lucide-react"
 
 interface AppHeaderProps {
-  title: string
+  title?: string
   subtitle?: string
   showBack?: boolean
   backHref?: string
@@ -16,7 +16,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({
-  title,
+  title = "RADAR",
   subtitle,
   showBack = false,
   backHref = "/dashboard",
@@ -37,7 +37,7 @@ export function AppHeader({
               className="rounded-lg"
             />
             <div>
-              <h1 className="text-lg md:text-xl font-bold">RADAR</h1>
+              <h1 className="text-lg md:text-xl font-bold">{title}</h1>
               <p className="text-xs md:text-sm text-white/80">{subtitle || "Recomendador de disciplinas"}</p>
             </div>
           </div>

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UsuarioDTO, LoginPayload, RegisterPayload, CadastroPayload } from '@/lib/api/types';
+import { UsuarioDTO, LoginPayload, CadastroPayload, UsuarioTestePayload } from '@/lib/api/types';
 import { usuariosService } from '@/lib/api/services/usuarios';
+import { setAccessToken } from '@/lib/api/client';
 
 interface UserContextType {
   usuarioId: number | null;
@@ -10,9 +11,8 @@ interface UserContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (payload: LoginPayload) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
   cadastro: (payload: CadastroPayload) => Promise<void>;
-  criarTeste: (cursoId: number, anoIngresso: number) => Promise<void>;
+  criarTeste: (payload: UsuarioTestePayload) => Promise<void>;
   logout: () => void;
   reloadUser: () => Promise<void>;
 }
@@ -24,48 +24,55 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<UsuarioDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Carrega usuário do localStorage ao montar
-  useEffect(() => {
-    const storedId = localStorage.getItem('usuarioId');
-    if (storedId) {
-      loadUser(parseInt(storedId));
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadUser = async (id: number) => {
+  async function loadUser(id: number) {
     try {
       const userData = await usuariosService.getById(id);
       setUsuario(userData);
       setUsuarioId(id);
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
+      setAccessToken(null);
       localStorage.removeItem('usuarioId');
+      localStorage.removeItem('accessToken');
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  // Carrega usuário do localStorage ao montar
+  useEffect(() => {
+    const storedId = localStorage.getItem('usuarioId');
+    const storedToken = localStorage.getItem('accessToken');
+    if (storedId && storedToken) {
+      setAccessToken(storedToken);
+      loadUser(parseInt(storedId));
+    } else {
+      localStorage.removeItem('usuarioId');
+      localStorage.removeItem('accessToken');
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const clearExpiredSession = () => {
+      setAccessToken(null);
+      setUsuarioId(null);
+      setUsuario(null);
+      setLoading(false);
+    };
+    window.addEventListener('radar:unauthorized', clearExpiredSession);
+    return () => window.removeEventListener('radar:unauthorized', clearExpiredSession);
+  }, []);
 
   const login = async (payload: LoginPayload) => {
     setLoading(true);
     try {
-      const userData = await usuariosService.login(payload);
-      setUsuario(userData);
-      setUsuarioId(userData.id);
-      localStorage.setItem('usuarioId', String(userData.id));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (payload: RegisterPayload) => {
-    setLoading(true);
-    try {
-      const userData = await usuariosService.register(payload);
-      setUsuario(userData);
-      setUsuarioId(userData.id);
-      localStorage.setItem('usuarioId', String(userData.id));
+      const auth = await usuariosService.login(payload);
+      setAccessToken(auth.accessToken);
+      setUsuario(auth.usuario);
+      setUsuarioId(auth.usuario.id);
+      localStorage.setItem('accessToken', auth.accessToken);
+      localStorage.setItem('usuarioId', String(auth.usuario.id));
     } finally {
       setLoading(false);
     }
@@ -74,22 +81,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const cadastro = async (payload: CadastroPayload) => {
     setLoading(true);
     try {
-      const userData = await usuariosService.cadastro(payload);
-      setUsuario(userData);
-      setUsuarioId(userData.id);
-      localStorage.setItem('usuarioId', String(userData.id));
+      const auth = await usuariosService.cadastro(payload);
+      setAccessToken(auth.accessToken);
+      setUsuario(auth.usuario);
+      setUsuarioId(auth.usuario.id);
+      localStorage.setItem('accessToken', auth.accessToken);
+      localStorage.setItem('usuarioId', String(auth.usuario.id));
     } finally {
       setLoading(false);
     }
   };
 
-  const criarTeste = async (cursoId: number, anoIngresso: number) => {
+  const criarTeste = async (payload: UsuarioTestePayload) => {
     setLoading(true);
     try {
-      const userData = await usuariosService.criarTeste({ cursoId, anoIngresso });
-      setUsuario(userData);
-      setUsuarioId(userData.id);
-      localStorage.setItem('usuarioId', String(userData.id));
+      const auth = await usuariosService.criarTeste(payload);
+      setAccessToken(auth.accessToken);
+      setUsuario(auth.usuario);
+      setUsuarioId(auth.usuario.id);
+      localStorage.setItem('accessToken', auth.accessToken);
+      localStorage.setItem('usuarioId', String(auth.usuario.id));
     } finally {
       setLoading(false);
     }
@@ -98,7 +109,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUsuarioId(null);
     setUsuario(null);
+    setAccessToken(null);
     localStorage.removeItem('usuarioId');
+    localStorage.removeItem('accessToken');
   };
 
   const reloadUser = async () => {
@@ -115,7 +128,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         loading,
         isAuthenticated: !!usuario,
         login,
-        register,
         cadastro,
         criarTeste,
         logout,

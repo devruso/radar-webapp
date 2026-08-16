@@ -40,7 +40,7 @@ export function PrerequisiteViewer({ componenteId, componenteNome }: Prerequisit
           <div className="space-y-1">
             {agrupar('PREREQUISITO').map((p) => (
               <Badge key={p.id} variant="outline" className="block w-fit">
-                {p.componenteIdRequisito}
+                {p.componentePreRequisitoId}
               </Badge>
             ))}
           </div>
@@ -57,7 +57,7 @@ export function PrerequisiteViewer({ componenteId, componenteNome }: Prerequisit
           <div className="space-y-1">
             {agrupar('COREQUISITO').map((p) => (
               <Badge key={p.id} variant="outline" className="block w-fit">
-                {p.componenteIdRequisito}
+                {p.componentePreRequisitoId}
               </Badge>
             ))}
           </div>
@@ -74,7 +74,7 @@ export function PrerequisiteViewer({ componenteId, componenteNome }: Prerequisit
           <div className="space-y-1">
             {agrupar('POSREQUISITO').map((p) => (
               <Badge key={p.id} variant="outline" className="block w-fit">
-                {p.componenteIdRequisito}
+                {p.componentePreRequisitoId}
               </Badge>
             ))}
           </div>

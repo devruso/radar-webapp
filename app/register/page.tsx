@@ -10,21 +10,8 @@ import { useToast } from "@/components/toast-container"
 import { validateEmail, validatePassword, validatePasswordMatch, validateRequired } from "@/lib/validation"
 import { FormFieldError } from "@/components/form-field-error"
 import { PasswordStrengthIndicator } from "@/components/password-strength-indicator"
-
-const AVAILABLE_COURSES = [
-  "Sistemas de Informação",
-  "Ciência da Computação",
-  "Engenharia de Computação",
-  "Engenharia Elétrica",
-  "Engenharia Mecânica",
-  "Engenharia Civil",
-  "Administração",
-  "Economia",
-  "Direito",
-  "Medicina",
-  "Enfermagem",
-  "Arquitetura e Urbanismo",
-]
+import { useCursos } from "@/lib/hooks/api/useCursos"
+import { useUser } from "@/lib/context/UserContext"
 
 const MONTHS = [
   "Janeiro",
@@ -41,11 +28,13 @@ const MONTHS = [
   "Dezembro",
 ]
 
-const YEARS = Array.from({ length: 20 }, (_, i) => 2024 - i) // Last 20 years
+const YEARS = Array.from({ length: 25 }, (_, i) => new Date().getFullYear() - i)
 
 export default function RegisterPage() {
   const router = useRouter()
   const { showToast } = useToast()
+  const { data: cursos } = useCursos()
+  const { cadastro } = useUser()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -54,21 +43,24 @@ export default function RegisterPage() {
     course: "",
     entryMonth: "",
     entryYear: "",
+    initialProfile: "1",
+    regularPeriods: "0",
+    cr: "",
+    graduating: false,
   })
 
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const [isLoading, setIsLoading] = useState(false)
 
   const [showCourseDropdown, setShowCourseDropdown] = useState(false)
-  const [filteredCourses, setFilteredCourses] = useState(AVAILABLE_COURSES)
+  const filteredCourses = cursos
+    .map((course) => course.nome)
+    .filter((course) => course.toLowerCase().includes(formData.course.toLowerCase()))
 
   const handleCourseChange = (value: string) => {
     setFormData({ ...formData, course: value })
     setShowCourseDropdown(true)
 
-    // Filter courses based on input
-    const filtered = AVAILABLE_COURSES.filter((course) => course.toLowerCase().includes(value.toLowerCase()))
-    setFilteredCourses(filtered)
   }
 
   const handleCourseSelect = (course: string) => {
@@ -76,7 +68,7 @@ export default function RegisterPage() {
     setShowCourseDropdown(false)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const newErrors: Record<string, string> = {}
@@ -88,6 +80,9 @@ export default function RegisterPage() {
     const yearError = validateRequired(formData.entryYear, "Ano de ingresso")
     const passwordError = validatePassword(formData.password)
     const confirmPasswordError = validatePasswordMatch(formData.password, formData.confirmPassword)
+    const initialProfile = Number(formData.initialProfile)
+    const regularPeriods = Number(formData.regularPeriods)
+    const cr = Number(formData.cr)
 
     if (nameError) newErrors.name = nameError
     if (emailError) newErrors.email = emailError
@@ -96,6 +91,17 @@ export default function RegisterPage() {
     if (yearError) newErrors.entryYear = yearError
     if (passwordError) newErrors.password = passwordError
     if (confirmPasswordError) newErrors.confirmPassword = confirmPasswordError
+    if (!Number.isInteger(initialProfile) || initialProfile < 1) {
+      newErrors.initialProfile = "Informe um perfil inicial válido"
+    }
+    if (!Number.isInteger(regularPeriods) || regularPeriods < 0) {
+      newErrors.regularPeriods = "Informe quantos períodos regulares foram cursados"
+    }
+    if (formData.cr.trim() === "" || !Number.isFinite(cr) || cr < 0 || cr > 10) {
+      newErrors.cr = "Informe um CR entre 0 e 10"
+    }
+    const selectedCourse = cursos.find((course) => course.nome === formData.course)
+    if (!selectedCourse) newErrors.course = "Selecione um curso cadastrado no RADAR"
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -104,12 +110,27 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await cadastro({
+        nome: formData.name,
+        email: formData.email,
+        senha: formData.password,
+        confirmarSenha: formData.confirmPassword,
+        cursoId: selectedCourse!.id,
+        mesIngresso: MONTHS.indexOf(formData.entryMonth) + 1,
+        anoIngresso: Number(formData.entryYear),
+        perfilInicial: initialProfile,
+        periodosRegularesCursados: regularPeriods,
+        coeficienteRendimento: cr,
+        statusFormando: formData.graduating,
+      })
       showToast("Cadastro realizado com sucesso!", "success")
       router.push("/register/success")
-    }, 1000)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Erro ao realizar cadastro", "error")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const clearError = (field: string) => {
@@ -199,6 +220,7 @@ export default function RegisterPage() {
                 />
                 <FormFieldError error={errors.email} id="email-error" />
               </div>
+
             </fieldset>
 
             <fieldset className="space-y-5 pb-6 border-b border-gray-200">
@@ -283,6 +305,72 @@ export default function RegisterPage() {
                   <FormFieldError error={errors.entryMonth || errors.entryYear} id="entry-error" />
                 )}
               </div>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950">
+                Estes dados aplicam literalmente a legenda de prioridades do SIGAA. Conte somente
+                períodos letivos regulares; não inclua trancamento, suspensão ou mobilidade.
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="initial-profile" className="block text-sm font-medium text-gray-700 mb-2">
+                    Perfil inicial
+                  </label>
+                  <input
+                    id="initial-profile"
+                    type="number"
+                    min="1"
+                    value={formData.initialProfile}
+                    onChange={(e) => setFormData({ ...formData, initialProfile: e.target.value })}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                    required
+                  />
+                  <FormFieldError error={errors.initialProfile} id="initial-profile-error" />
+                </div>
+                <div>
+                  <label htmlFor="regular-periods" className="block text-sm font-medium text-gray-700 mb-2">
+                    Períodos regulares cursados
+                  </label>
+                  <input
+                    id="regular-periods"
+                    type="number"
+                    min="0"
+                    value={formData.regularPeriods}
+                    onChange={(e) => setFormData({ ...formData, regularPeriods: e.target.value })}
+                    className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                    required
+                  />
+                  <FormFieldError error={errors.regularPeriods} id="regular-periods-error" />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="cr" className="block text-sm font-medium text-gray-700 mb-2">
+                  Coeficiente de Rendimento (CR)
+                </label>
+                <input
+                  id="cr"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.01"
+                  value={formData.cr}
+                  onChange={(e) => setFormData({ ...formData, cr: e.target.value })}
+                  className="w-full px-4 py-3.5 border border-gray-300 rounded-lg"
+                  required
+                />
+                <FormFieldError error={errors.cr} id="cr-error" />
+              </div>
+
+              <label className="flex items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={formData.graduating}
+                  onChange={(e) => setFormData({ ...formData, graduating: e.target.checked })}
+                  className="mt-1 h-4 w-4"
+                />
+                <span>Tenho status <strong>FORMANDO</strong> no SIGAA</span>
+              </label>
             </fieldset>
 
             <fieldset className="space-y-5">

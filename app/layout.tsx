@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ToastProvider } from "@/components/toast-container"
 import { UserProvider } from "@/lib/context/UserContext"
+import { AuthGuard } from "@/components/auth-guard"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -12,7 +13,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Radar de disciplinas da UFBA",
   description: "Plataforma de gestão acadêmica para estudantes",
-  generator: "v0.app",
   icons: {
     icon: [
       {
@@ -38,10 +38,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body className={`font-sans antialiased`}>
         <UserProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <AuthGuard>{children}</AuthGuard>
+          </ToastProvider>
         </UserProvider>
         <Analytics />
       </body>

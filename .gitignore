@@ -1,5 +1,6 @@
 node_modules
 .next
+*.tsbuildinfo
 integration
 INTEGRACAO_COMPLETA.md
 backend/CRIAR_TABELAS_URGENTE.sql

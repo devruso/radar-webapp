@@ -6,7 +6,6 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import { AppHeader } from "@/components/app-header"
 import { useToast } from "@/components/toast-container"
 import { useUser } from "@/lib/context/UserContext"
-import { useHistorico } from "@/lib/hooks/api/useHistorico"
 import { useComponentes } from "@/lib/hooks/api/useComponentes"
 import { usuariosService } from "@/lib/api/services/usuarios"
 import type { ComponenteCurricularDTO } from "@/lib/api/types"
@@ -16,109 +15,6 @@ interface SemesterData {
   courses: ComponenteCurricularDTO[]
 }
 
-const OLD_semesters = [
-  {
-    number: 1,
-    courses: [
-      { name: "cálculo 1", color: "bg-pink-100 text-pink-700 border-pink-200" },
-      { name: "computador, ética e sociedade", color: "bg-blue-100 text-blue-700 border-blue-200" },
-      { name: "introdução à lógica de programação", color: "bg-blue-100 text-blue-700 border-blue-200" },
-      {
-        name: "circuitos digitais e arquitetura de computadores",
-        color: "bg-green-100 text-green-700 border-green-200",
-      },
-      {
-        name: "Seminários de introdução ao curso",
-        color: "bg-green-100 text-green-700 border-green-200",
-      },
-    ],
-  },
-  {
-    number: 2,
-    courses: [
-      { name: "economia da inovação", color: "bg-purple-100 text-purple-700 border-purple-200" },
-      {
-        name: "circuitos digitais e arquitetura de computadores",
-        color: "bg-purple-100 text-purple-700 border-purple-200",
-      },
-      { name: "estruturas de dados", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      { name: "fundamentos de sistemas de informação", color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
-      { name: "introdução à lógica matemática", color: "bg-pink-100 text-pink-700 border-pink-200" },
-    ],
-  },
-  {
-    number: 3,
-    courses: [
-      { name: "álgebra linear", color: "bg-pink-100 text-pink-700 border-pink-200" },
-      { name: "introdução a administração", color: "bg-purple-100 text-purple-700 border-purple-200" },
-      {
-        name: "introdução a linguagens formais e teoria da computação",
-        color: "bg-blue-100 text-blue-700 border-blue-200",
-      },
-      { name: "programação orientada a objetos", color: "bg-blue-100 text-blue-700 border-blue-200" },
-      { name: "sistemas operacionais", color: "bg-green-100 text-green-700 border-green-200" },
-    ],
-  },
-  {
-    number: 4,
-    courses: [
-      { name: "engenharia de software I", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      { name: "métodos estatísticos", color: "bg-pink-100 text-pink-700 border-pink-200" },
-      { name: "oficina de leitura e produção de textos", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-      { name: "redes de computadores I", color: "bg-green-100 text-green-700 border-green-200" },
-      { name: "sistemas web", color: "bg-green-100 text-green-700 border-green-200" },
-    ],
-  },
-  {
-    number: 5,
-    courses: [
-      { name: "banco de dados", color: "bg-purple-100 text-purple-700 border-purple-200" },
-      { name: "engenharia de software II", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      { name: "laboratório de programação web", color: "bg-green-100 text-green-700 border-green-200" },
-      {
-        name: "métodos quantitativos aplicados à administração",
-        color: "bg-purple-100 text-purple-700 border-purple-200",
-      },
-      { name: "paradigmas de linguagem de programação", color: "bg-blue-100 text-blue-700 border-blue-200" },
-    ],
-  },
-  {
-    number: 6,
-    courses: [
-      { name: "aplicações para dispositivos móveis", color: "bg-green-100 text-green-700 border-green-200" },
-      { name: "empreendedores em informática", color: "bg-purple-100 text-purple-700 border-purple-200" },
-      { name: "laboratório de banco de dados", color: "bg-purple-100 text-purple-700 border-purple-200" },
-      { name: "linguagens para aplicação comercial", color: "bg-blue-100 text-blue-700 border-blue-200" },
-      { name: "sistemas de apoio a decisão", color: "bg-purple-100 text-purple-700 border-purple-200" },
-    ],
-  },
-  {
-    number: 7,
-    courses: [
-      { name: "inteligência artificial", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      { name: "interação humano computador", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      { name: "qualidade de software", color: "bg-orange-100 text-orange-700 border-orange-200" },
-      {
-        name: "segurança e auditoria de sistemas de informação",
-        color: "bg-green-100 text-green-700 border-green-200",
-      },
-      { name: "sistemas multimidia", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    ],
-  },
-  {
-    number: 8,
-    courses: [],
-  },
-  {
-    number: 9,
-    courses: [{ name: "tcc bacharelado sistemas de informação I", color: "bg-red-100 text-red-700 border-red-200" }],
-  },
-  {
-    number: 10,
-    courses: [{ name: "tcc bacharelado sistemas de informação II", color: "bg-red-100 text-red-700 border-red-200" }],
-  },
-]
-
 export default function GradesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -127,8 +23,7 @@ export default function GradesPage() {
   const { usuarioId, usuario } = useUser()
   
   // Buscar componentes e histórico do backend
-  const { data: componentes, loading: loadingComponentes } = useComponentes()
-  const { data: historico, loading: loadingHistorico } = useHistorico(usuarioId)
+  const { data: componentes, loading: loadingComponentes } = useComponentes(usuario?.cursoNome)
   
   const [selectedCourses, setSelectedCourses] = useState<Set<string>>(new Set())
   const [semesters, setSemesters] = useState<SemesterData[]>([])
@@ -168,8 +63,8 @@ export default function GradesPage() {
     }
   }, [usuario])
 
-  const toggleCourse = (componenteId: number) => {
-    const courseIdStr = componenteId.toString()
+  const toggleCourse = (componenteCodigo: string) => {
+    const courseIdStr = componenteCodigo
     const newSelected = new Set(selectedCourses)
 
     if (newSelected.has(courseIdStr)) {
@@ -185,12 +80,12 @@ export default function GradesPage() {
     const semester = semesters.find((s) => s.number === semesterNumber)
     if (!semester || semester.courses.length === 0) return
 
-    const allSelected = semester.courses.every((c) => selectedCourses.has(c.id.toString()))
+    const allSelected = semester.courses.every((c) => selectedCourses.has(c.codigo))
 
     const newSelected = new Set(selectedCourses)
 
     semester.courses.forEach((course) => {
-      const courseIdStr = course.id.toString()
+      const courseIdStr = course.codigo
       if (allSelected) {
         newSelected.delete(courseIdStr)
       } else {
@@ -205,7 +100,7 @@ export default function GradesPage() {
     const semester = semesters.find((s) => s.number === semesterNumber)
     if (!semester || semester.courses.length === 0) return false
 
-    return semester.courses.every((c) => selectedCourses.has(c.id.toString()))
+    return semester.courses.every((c) => selectedCourses.has(c.codigo))
   }
 
   const toggleSemesterExpansion = (semesterNumber: number) => {
@@ -329,7 +224,7 @@ export default function GradesPage() {
                       {semester.courses.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
                           {semester.courses.map((course) => {
-                            const courseIdStr = course.id.toString()
+                            const courseIdStr = course.codigo
                             const isSelected = selectedCourses.has(courseIdStr)
                             const colorClass = `bg-blue-100 text-blue-700 border-blue-200`
 
@@ -343,7 +238,7 @@ export default function GradesPage() {
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  onChange={() => toggleCourse(course.id)}
+                                  onChange={() => toggleCourse(course.codigo)}
                                   className="w-4 h-4 rounded border-gray-300 text-[#2B3E7E] focus:ring-[#2B3E7E] cursor-pointer"
                                 />
                                 {course.nome}

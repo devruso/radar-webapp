@@ -4,17 +4,15 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 
 export default function ForgotPasswordPage() {
-  const router = useRouter()
   const [email, setEmail] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulate sending recovery email
-    router.push("/forgot-password/sent")
+    setSubmitted(true)
   }
 
   return (
@@ -52,8 +50,14 @@ export default function ForgotPasswordPage() {
             </div>
 
             <Button type="submit" className="w-full bg-[#2B3E7E] hover:bg-[#1f2d5a] text-white py-6 text-base">
-              Recuperar senha
+              Verificar recuperação
             </Button>
+            {submitted && (
+              <p role="status" className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                O envio de recuperação por email ainda não está configurado. Nenhuma mensagem foi enviada.
+                Entre em contato com a equipe do RADAR para recuperar o acesso.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 text-center">
